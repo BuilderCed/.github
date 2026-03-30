@@ -34,12 +34,12 @@ jobs:
           if [ -f "requirements.txt" ]; then uv pip install -r requirements.txt --system; fi
           if [ -f "pyproject.toml" ]; then uv pip install -e . --system 2>/dev/null || true; fi
       - name: Ruff lint
-        uses: astral-sh/ruff-action@v3
+        uses: astral-sh/ruff-action@146cd51f235777a9bc491eead18e0d5a4b05406a # v3
         with:
           args: check .
         continue-on-error: true
       - name: Ruff format check
-        uses: astral-sh/ruff-action@v3
+        uses: astral-sh/ruff-action@146cd51f235777a9bc491eead18e0d5a4b05406a # v3
         with:
           args: format --check .
         continue-on-error: true
