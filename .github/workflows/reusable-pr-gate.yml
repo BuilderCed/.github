@@ -1,0 +1,42 @@
+name: PR Gate
+
+on:
+  workflow_call:
+
+permissions:
+  contents: read
+  pull-requests: read
+
+jobs:
+  quality-checks:
+    name: PR Quality Gate
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Check PR Description
+        env:
+          PR_BODY: ${{ github.event.pull_request.body }}
+        run: |
+          if [ -z "$PR_BODY" ] || [ ${#PR_BODY} -lt 20 ]; then
+            echo "::error::PR must have a meaningful description (min 20 chars)"
+            exit 1
+          fi
+      - name: Check PR Size
+        env:
+          PR_ADDITIONS: ${{ github.event.pull_request.additions }}
+          PR_DELETIONS: ${{ github.event.pull_request.deletions }}
+        run: |
+          TOTAL=$((PR_ADDITIONS + PR_DELETIONS))
+          if [ $TOTAL -gt 1000 ]; then
+            echo "::error::PR too large ($TOTAL lines). Split into smaller PRs."
+            exit 1
+          elif [ $TOTAL -gt 500 ]; then
+            echo "::warning::Large PR ($TOTAL lines). Consider splitting."
+          fi
+      - name: Check Conventional Commits Title
+        env:
+          PR_TITLE: ${{ github.event.pull_request.title }}
+        run: |
+          if ! echo "$PR_TITLE" | grep -qE "^(feat|fix|docs|style|refactor|perf|test|chore|ci|build|revert)"; then
+            echo "::warning::Title should follow Conventional Commits (feat|fix|docs|...)"
+          fi

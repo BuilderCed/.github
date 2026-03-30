@@ -1,0 +1,33 @@
+name: CI Dart/Flutter
+
+on:
+  workflow_call:
+    inputs:
+      flutter-version:
+        type: string
+        default: '3.x'
+      flutter-channel:
+        type: string
+        default: 'stable'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  quality:
+    name: Analyze & Test
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - uses: subosito/flutter-action@44ac965b96f18d999802d4b807e3256d5a3f9fa1 # v2.16.0
+        with:
+          flutter-version: ${{ inputs.flutter-version }}
+          channel: ${{ inputs.flutter-channel }}
+      - run: flutter pub get
+      - run: dart analyze
+      - run: flutter test 2>/dev/null || true

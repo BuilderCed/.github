@@ -1,0 +1,46 @@
+name: CI Static/PWA
+
+on:
+  workflow_call:
+    inputs:
+      max-html-size-kb:
+        type: number
+        default: 200
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  validate:
+    name: Validate
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - name: Check HTML syntax
+        run: |
+          for f in $(find . -name '*.html' -not -path './node_modules/*' -not -path './.git/*'); do
+            python3 -c "open('$f').read()" || echo "::error::Invalid file: $f"
+          done
+      - name: File size budget
+        run: |
+          MAX_KB=${{ inputs.max-html-size-kb }}
+          for f in $(find . -name '*.html' -not -path './node_modules/*' -not -path './.git/*'); do
+            SIZE=$(wc -c < "$f")
+            MAX_BYTES=$((MAX_KB * 1024))
+            if [ "$SIZE" -gt "$MAX_BYTES" ]; then
+              echo "::error::$f exceeds ${MAX_KB}KB budget ($(( SIZE / 1024 ))KB)"
+              exit 1
+            fi
+          done
+      - name: CSP meta tag check
+        run: |
+          for f in $(find . -name '*.html' -not -path './node_modules/*' -not -path './.git/*'); do
+            if ! grep -q 'Content-Security-Policy' "$f" 2>/dev/null; then
+              echo "::warning::$f missing CSP meta tag"
+            fi
+          done

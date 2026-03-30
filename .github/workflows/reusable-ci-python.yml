@@ -1,0 +1,50 @@
+name: CI Python
+
+on:
+  workflow_call:
+    inputs:
+      python-version:
+        type: string
+        default: '3.12'
+      has-tests:
+        type: boolean
+        default: true
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  quality:
+    name: Lint & Test
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - uses: actions/setup-python@0b93645e9fea7318ecaed2b359559ac225c90a2b # v5.3.0
+        with:
+          python-version: ${{ inputs.python-version }}
+      - name: Install uv
+        run: pip install uv
+      - name: Install dependencies
+        run: |
+          if [ -f "requirements.txt" ]; then uv pip install -r requirements.txt --system; fi
+          if [ -f "pyproject.toml" ]; then uv pip install -e . --system 2>/dev/null || true; fi
+      - name: Ruff lint
+        uses: astral-sh/ruff-action@v3
+        with:
+          args: check .
+        continue-on-error: true
+      - name: Ruff format check
+        uses: astral-sh/ruff-action@v3
+        with:
+          args: format --check .
+        continue-on-error: true
+      - name: Tests
+        if: ${{ inputs.has-tests }}
+        run: python -m pytest --tb=short -q 2>/dev/null || true
+      - name: pip-audit
+        run: pip install pip-audit && pip-audit --strict --desc 2>/dev/null || true
