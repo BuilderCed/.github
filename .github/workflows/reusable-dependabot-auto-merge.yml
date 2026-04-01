@@ -6,6 +6,7 @@ on:
 permissions:
   contents: write
   pull-requests: write
+  checks: read
 
 concurrency:
   group: dependabot-${{ github.ref }}
@@ -19,14 +20,36 @@ jobs:
     steps:
       - uses: dependabot/fetch-metadata@ffa630c65fa7e0ecfa0625b5ceda64399aea1b36 # v2
         id: metadata
+
+      - name: Wait for CI checks to complete
+        if: steps.metadata.outputs.update-type == 'version-update:semver-minor' || steps.metadata.outputs.update-type == 'version-update:semver-patch'
+        run: |
+          echo "Waiting for CI checks on PR $PR_URL..."
+          for i in $(seq 1 30); do
+            STATUS=$(gh pr checks "$PR_URL" --json bucket --jq '[.[] | select(.bucket != "pass" and .bucket != "skip")] | length' 2>/dev/null || echo "pending")
+            if [ "$STATUS" = "0" ]; then
+              echo "All checks passed."
+              exit 0
+            fi
+            echo "Attempt $i/30: $STATUS checks pending..."
+            sleep 10
+          done
+          echo "Timeout: checks did not pass in 5 minutes. Skipping auto-merge."
+          exit 1
+        env:
+          PR_URL: ${{ github.event.pull_request.html_url }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
       - name: Auto-merge patch/minor
         if: steps.metadata.outputs.update-type == 'version-update:semver-minor' || steps.metadata.outputs.update-type == 'version-update:semver-patch'
         run: |
           gh pr review --approve "$PR_URL"
           gh pr merge --auto --squash "$PR_URL"
+          echo "Auto-merged: $(date -u +%Y-%m-%dT%H:%M:%SZ) | $PR_URL | ${{ steps.metadata.outputs.dependency-names }} | ${{ steps.metadata.outputs.update-type }}"
         env:
           PR_URL: ${{ github.event.pull_request.html_url }}
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
       - name: Label major updates for review
         if: steps.metadata.outputs.update-type == 'version-update:semver-major'
         run: gh pr edit "$PR_URL" --add-label "major-update,needs-review" --add-assignee "BuilderCed"
