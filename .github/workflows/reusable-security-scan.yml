@@ -34,7 +34,7 @@ jobs:
             echo "level=critical" >> $GITHUB_OUTPUT
           elif echo "$CHANGED" | grep -qE "(api|database|payment|user)"; then
             echo "level=high" >> $GITHUB_OUTPUT
-          elif echo "$CHANGED" | grep -qE "\.(md|txt|json)$" && ! echo "$CHANGED" | grep -qE "\.(ts|tsx|js|jsx|py|go|rs)$"; then
+          elif echo "$CHANGED" | grep -qE "\.(md|txt)$" && ! echo "$CHANGED" | grep -qE "\.(ts|tsx|js|jsx|py|go|rs|json|yaml|yml|toml|env)$"; then
             echo "level=docs-only" >> $GITHUB_OUTPUT
           else
             echo "level=standard" >> $GITHUB_OUTPUT
@@ -59,8 +59,7 @@ jobs:
         with:
           path: ./
           extra_args: --only-verified
-      - name: Semgrep (high/critical risk)
-        if: needs.classify.outputs.security_level == 'high' || needs.classify.outputs.security_level == 'critical'
+      - name: Semgrep SAST
         uses: semgrep/semgrep-action@713efdd345f3035192eaa63f56867b88e63e4e5d # v1
         with:
-          config: p/security-audit p/secrets
+          config: p/default p/secrets
